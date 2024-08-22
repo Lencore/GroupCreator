@@ -56,30 +56,65 @@ async def create_chat(client, message):
         # Настройка прав и добавление участников
         await asyncio.sleep(1)  # Задержка
         if chat_type == "supergroup":
-            await client.set_chat_permissions(chat_id, ChatPermissions(can_send_messages=True))
-            await client.set_chat_permissions(chat_id, ChatPermissions(can_invite_users=False))
+            await client.set_chat_permissions(chat_id, ChatPermissions(
+                can_send_messages=True,
+                can_invite_users=False
+            ))
 
         # Запрет на копирование контента
         await asyncio.sleep(1)  # Задержка
-        await client.set_chat_permissions(chat_id, ChatPermissions(can_save_content=False))
+        try:
+            await client.set_chat_protected_content(chat_id, enabled=True)
+        except Exception as e:
+            print(f"Failed to set protected content: {str(e)}")
 
         # Добавление участников
         user_ids = [1747279, 1045827, 142283509, 1873028973]
         for user_id in user_ids:
             await asyncio.sleep(1)  # Задержка
-            await client.add_chat_members(chat_id, user_id)
+            try:
+                await client.add_chat_members(chat_id, user_id)
+            except Exception as e:
+                print(f"Failed to add user {user_id}: {str(e)}")
 
         # Назначение админов
         await asyncio.sleep(1)  # Задержка
-        await client.promote_chat_member(chat_id, 1873028973, can_manage_chat=True, can_post_messages=True, can_edit_messages=True, can_delete_messages=True, can_invite_users=True, can_restrict_members=True, can_pin_messages=True, can_promote_members=True)
+        try:
+            await client.promote_chat_member(
+                chat_id, 1873028973,
+                privileges=ChatPermissions(
+                    can_manage_chat=True,
+                    can_post_messages=True,
+                    can_edit_messages=True,
+                    can_delete_messages=True,
+                    can_invite_users=True,
+                    can_restrict_members=True,
+                    can_pin_messages=True,
+                    can_promote_members=True
+                )
+            )
+        except Exception as e:
+            print(f"Failed to promote user 1873028973: {str(e)}")
         
         admin_added = False
         try:
             await asyncio.sleep(1)  # Задержка
-            await client.promote_chat_member(chat_id, chat_admin, can_manage_chat=True, can_post_messages=True, can_edit_messages=True, can_delete_messages=True, can_invite_users=True, can_restrict_members=True, can_pin_messages=True, can_promote_members=True)
+            await client.promote_chat_member(
+                chat_id, chat_admin,
+                privileges=ChatPermissions(
+                    can_manage_chat=True,
+                    can_post_messages=True,
+                    can_edit_messages=True,
+                    can_delete_messages=True,
+                    can_invite_users=True,
+                    can_restrict_members=True,
+                    can_pin_messages=True,
+                    can_promote_members=True
+                )
+            )
             admin_added = True
-        except Exception:
-            admin_added = False
+        except Exception as e:
+            print(f"Failed to promote admin {chat_admin}: {str(e)}")
 
         # Получение ссылки приглашения
         try:
