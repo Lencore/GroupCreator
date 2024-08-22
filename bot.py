@@ -1,7 +1,8 @@
 from pyrogram import Client, filters
 from pyrogram.types import ChatPermissions
-
 import config
+import os
+import asyncio
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
@@ -17,8 +18,11 @@ async def create_chat(client, message):
 
         chat_title = lines[0]
         chat_type = lines[1]
-        chat_avatar = lines[2]
+        chat_avatar_name = lines[2]
         chat_admin = int(lines[3])
+
+        # Задержка перед выполнением команд
+        await asyncio.sleep(1)
 
         # Создание чата
         if chat_type == "supergroup":
@@ -33,32 +37,45 @@ async def create_chat(client, message):
 
         chat_id = chat.id
 
-        # Установка аватара. В случае использования file_id, можно передать его напрямую.
-        try:
-            await client.set_chat_photo(chat_id, chat_avatar)
-        except Exception as e:
-            error_message = f"Failed to set chat photo: {str(e)}"
+        # Подгрузка и установка аватарки
+        avatar_path = os.path.join(os.getcwd(), f"{chat_avatar_name}.png")
+        if os.path.isfile(avatar_path):
+            try:
+                await client.set_chat_photo(chat_id, avatar_path)
+            except Exception as e:
+                error_message = f"Failed to set chat photo: {str(e)}"
+                report = f"false\n{chat_id}\nnull\nfalse\nError: {error_message}"
+                await client.send_message(config.CHANNEL_ID, report)
+                return
+        else:
+            error_message = f"Avatar file {chat_avatar_name}.png not found"
             report = f"false\n{chat_id}\nnull\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
 
         # Настройка прав и добавление участников
+        await asyncio.sleep(1)  # Задержка
         if chat_type == "supergroup":
             await client.set_chat_permissions(chat_id, ChatPermissions(can_send_messages=True))
             await client.set_chat_permissions(chat_id, ChatPermissions(can_invite_users=False))
 
         # Запрет на копирование контента
+        await asyncio.sleep(1)  # Задержка
         await client.set_chat_permissions(chat_id, ChatPermissions(can_save_content=False))
 
         # Добавление участников
         user_ids = [1747279, 1045827, 142283509, 1873028973]
         for user_id in user_ids:
+            await asyncio.sleep(1)  # Задержка
             await client.add_chat_members(chat_id, user_id)
 
         # Назначение админов
+        await asyncio.sleep(1)  # Задержка
         await client.promote_chat_member(chat_id, 1873028973, can_manage_chat=True, can_post_messages=True, can_edit_messages=True, can_delete_messages=True, can_invite_users=True, can_restrict_members=True, can_pin_messages=True, can_promote_members=True)
+        
         admin_added = False
         try:
+            await asyncio.sleep(1)  # Задержка
             await client.promote_chat_member(chat_id, chat_admin, can_manage_chat=True, can_post_messages=True, can_edit_messages=True, can_delete_messages=True, can_invite_users=True, can_restrict_members=True, can_pin_messages=True, can_promote_members=True)
             admin_added = True
         except Exception:
@@ -66,6 +83,7 @@ async def create_chat(client, message):
 
         # Получение ссылки приглашения
         try:
+            await asyncio.sleep(1)  # Задержка
             invite_link = await client.export_chat_invite_link(chat_id)
         except Exception as e:
             invite_link = "null"
