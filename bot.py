@@ -33,8 +33,14 @@ async def create_chat(client, message):
 
         chat_id = chat.id
 
-        # Установка аватара
-        await client.set_chat_photo(chat_id, chat_avatar)
+        # Установка аватара. В случае использования file_id, можно передать его напрямую.
+        try:
+            await client.set_chat_photo(chat_id, chat_avatar)
+        except Exception as e:
+            error_message = f"Failed to set chat photo: {str(e)}"
+            report = f"false\n{chat_id}\nnull\nfalse\nError: {error_message}"
+            await client.send_message(config.CHANNEL_ID, report)
+            return
 
         # Настройка прав и добавление участников
         if chat_type == "supergroup":
@@ -59,7 +65,12 @@ async def create_chat(client, message):
             admin_added = False
 
         # Получение ссылки приглашения
-        invite_link = await client.export_chat_invite_link(chat_id)
+        try:
+            invite_link = await client.export_chat_invite_link(chat_id)
+        except Exception as e:
+            invite_link = "null"
+            error_message = f"Failed to get invite link: {str(e)}"
+            await client.send_message(config.OWNER_ID, error_message)
 
         # Отправка отчета
         report = f"true\n{chat_id}\n{invite_link}\n{admin_added}"
