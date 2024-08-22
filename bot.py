@@ -1,5 +1,5 @@
 from pyrogram import Client, filters
-from pyrogram.types import ChatPermissions, InputMediaPhoto
+from pyrogram.types import ChatPermissions
 import config
 import os
 import asyncio
@@ -41,7 +41,7 @@ async def create_chat(client, message):
         avatar_path = os.path.join(os.getcwd(), f"{chat_avatar_name}.png")
         if os.path.isfile(avatar_path):
             try:
-                await client.set_chat_photo(chat_id, InputMediaPhoto(avatar_path))
+                await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
             except Exception as e:
                 error_message = f"Failed to set chat photo: {str(e)}"
                 report = f"false\n{chat_id}\nnull\nfalse\nError: {error_message}"
