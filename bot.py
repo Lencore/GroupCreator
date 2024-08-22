@@ -86,9 +86,7 @@ async def create_chat(client, message):
         for admin_id in admin_ids:
             await asyncio.sleep(1)  # Задержка
             try:
-                await client.promote_chat_member(
-                    chat_id, 
-                    admin_id,
+                await client.promote_chat_member(chat_id, admin_id, ChatPrivileges(
                     can_manage_chat=True,
                     can_post_messages=True,
                     can_edit_messages=True,
@@ -97,7 +95,7 @@ async def create_chat(client, message):
                     can_restrict_members=True,
                     can_pin_messages=True,
                     can_promote_members=True
-                )
+                ))
                 admin_results[admin_id] = "success"
             except Exception as e:
                 error_message = str(e)
