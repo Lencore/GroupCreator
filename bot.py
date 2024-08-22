@@ -1,5 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import ChatPermissions
+from pyrogram.types import ChatPrivileges
 import config
 import os
 import asyncio
@@ -86,7 +87,7 @@ async def create_chat(client, message):
         for admin_id in admin_ids:
             await asyncio.sleep(1)  # Задержка
             try:
-                await client.promote_chat_member(chat_id, admin_id, privileges=ChatPrivileges(
+                await client.promote_chat_member(chat_id, admin_id, ChatPrivileges(
                     can_manage_chat=True,
                     can_post_messages=True,
                     can_edit_messages=True,
