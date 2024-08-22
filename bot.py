@@ -81,44 +81,44 @@ async def create_chat(client, message):
                 print(f"Failed to add user {user_id}: {str(e)}")
 
         # Назначение админов
-         admin_ids = [1873028973, chat_admin]
-         admin_results = {}
-         for admin_id in admin_ids:
+        admin_ids = [1873028973, chat_admin]
+        admin_results = {}
+        for admin_id in admin_ids:
             await asyncio.sleep(1)  # Задержка
             try:
-               await client.promote_chat_member(
-                     chat_id, 
-                     admin_id,
-                     can_manage_chat=True,
-                     can_post_messages=True,
-                     can_edit_messages=True,
-                     can_delete_messages=True,
-                     can_invite_users=True,
-                     can_restrict_members=True,
-                     can_pin_messages=True,
-                     can_promote_members=True
-               )
-               admin_results[admin_id] = "success"
+                await client.promote_chat_member(
+                    chat_id, 
+                    admin_id,
+                    can_manage_chat=True,
+                    can_post_messages=True,
+                    can_edit_messages=True,
+                    can_delete_messages=True,
+                    can_invite_users=True,
+                    can_restrict_members=True,
+                    can_pin_messages=True,
+                    can_promote_members=True
+                )
+                admin_results[admin_id] = "success"
             except Exception as e:
-               error_message = str(e)
-               admin_results[admin_id] = f"failed: {error_message}"
-               print(f"Failed to promote admin {admin_id}: {error_message}")
+                error_message = str(e)
+                admin_results[admin_id] = f"failed: {error_message}"
+                print(f"Failed to promote admin {admin_id}: {error_message}")
 
-         # Формирование отчета о назначении админов
-         admin_report = "\n".join([f"{admin_id}: {result}" for admin_id, result in admin_results.items()])
+        # Формирование отчета о назначении админов
+        admin_report = "\n".join([f"{admin_id}: {result}" for admin_id, result in admin_results.items()])
 
-         # Получение ссылки приглашения
-         try:
+        # Получение ссылки приглашения
+        try:
             await asyncio.sleep(1)  # Задержка
             invite_link = await client.export_chat_invite_link(chat_id)
-         except Exception as e:
+        except Exception as e:
             invite_link = "null"
             error_message = f"Failed to get invite link: {str(e)}"
             await client.send_message(config.OWNER_ID, error_message)
 
-         # Отправка отчета
-         report = f"true\n{chat_id}\n{invite_link}\n{admin_report}"
-         await client.send_message(config.CHANNEL_ID, report)
+        # Отправка отчета
+        report = f"true\n{chat_id}\n{invite_link}\n{admin_report}"
+        await client.send_message(config.CHANNEL_ID, report)
 
     except Exception as e:
         error_message = f"Ошибка: {str(e)}"
