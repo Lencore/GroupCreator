@@ -72,7 +72,7 @@ async def create_chat(client, message):
             print(f"Failed to set protected content: {str(e)}")
 
         # Добавление участников
-        user_ids = [1747279, 1045827, 142283509, 1873028973, chat_admin]
+        user_ids = [1747279, 142283509, 1873028973, chat_admin]
         for user_id in user_ids:
             await asyncio.sleep(1)  # Задержка
             try:
