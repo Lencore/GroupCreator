@@ -38,7 +38,7 @@ async def create_chat(client, message):
         chat_id = chat.id
 
         # Подгрузка и установка аватарки
-        avatar_path = os.path.join(os.getcwd(), f"{chat_avatar_name}.jpg")
+        avatar_path = os.path.join(os.getcwd(), f"{chat_avatar_name}.png")
         if os.path.isfile(avatar_path):
             try:
                 await client.set_chat_photo(chat_id, InputMediaPhoto(avatar_path))
@@ -48,7 +48,7 @@ async def create_chat(client, message):
                 await client.send_message(config.CHANNEL_ID, report)
                 return
         else:
-            error_message = f"Avatar file {chat_avatar_name}.jpg not found"
+            error_message = f"Avatar file {chat_avatar_name}.png not found"
             report = f"false\n{chat_id}\nnull\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
