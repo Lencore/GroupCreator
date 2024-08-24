@@ -11,9 +11,9 @@ app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_num
 async def create_chat(client, message):
     try:
         lines = message.text.split("\n")
-        if len(lines) < 4:
-            error_message = "Команда должна содержать 4 строки: title, type, avatar, admin"
-            report = f"false\nnull\nnull\nfalse\nError: {error_message}"
+        if len(lines) < 5:
+            error_message = "Команда должна содержать 5 строк: title, type, avatar, admin, author"
+            report = f"false\nnull\nnull\nnull\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
 
@@ -21,6 +21,7 @@ async def create_chat(client, message):
         chat_type = lines[1]
         chat_avatar_name = lines[2]
         chat_admin = int(lines[3])
+        chat_author = lines[4]  # Новая строка для автора команды
 
         # Задержка перед выполнением команд
         await asyncio.sleep(1)
@@ -32,7 +33,7 @@ async def create_chat(client, message):
             chat = await client.create_channel(chat_title)
         else:
             error_message = "Wrong chat type, use supergroup or channel"
-            report = f"false\nnull\nnull\nfalse\nError: {error_message}"
+            report = f"false\n{chat_author}\nnull\nnull\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
 
@@ -45,12 +46,12 @@ async def create_chat(client, message):
                 await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
             except Exception as e:
                 error_message = f"Failed to set chat photo: {str(e)}"
-                report = f"false\n{chat_id}\nnull\nfalse\nError: {error_message}"
+                report = f"false\n{chat_author}\n{chat_id}\nnull\nfalse\nError: {error_message}"
                 await client.send_message(config.CHANNEL_ID, report)
                 return
         else:
             error_message = f"Avatar file {chat_avatar_name}.png not found"
-            report = f"false\n{chat_id}\nnull\nfalse\nError: {error_message}"
+            report = f"false\n{chat_author}\n{chat_id}\nnull\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
 
@@ -116,12 +117,12 @@ async def create_chat(client, message):
             await client.send_message(config.OWNER_ID, error_message)
 
         # Отправка отчета
-        report = f"true\n{chat_id}\n{invite_link}\n{admin_report}"
+        report = f"true\n{chat_author}\n{chat_id}\n{invite_link}\n{admin_report}"
         await client.send_message(config.CHANNEL_ID, report)
 
     except Exception as e:
         error_message = f"Ошибка: {str(e)}"
-        report = f"false\nnull\nnull\nfalse\n{error_message}"
+        report = f"false\n{chat_author}\nnull\nnull\nfalse\n{error_message}"
         await client.send_message(config.CHANNEL_ID, report)
         await client.send_message(config.OWNER_ID, error_message)
 
