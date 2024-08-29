@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
-from pyrogram.types import ChatPermissions
-from pyrogram.types import ChatPrivileges
+from pyrogram.types import ChatPermissions, ChatPrivileges
+from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted
 import config
 import os
 import asyncio
@@ -20,8 +20,7 @@ async def create_chat(client, message):
         chat_title, chat_type, chat_avatar_name, members, admins, sender = lines
         members = [int(m.strip()) for m in members.split(',') if m.strip()]
         admins = [int(a.strip()) for a in admins.split(',') if a.strip()]
-        all_users = list(set(members + admins))
-
+        
         await asyncio.sleep(3)
 
         # Создание чата
@@ -57,7 +56,7 @@ async def create_chat(client, message):
 
         await asyncio.sleep(3)
 
-        # Настройка прав и добавление участников
+        # Настройка прав
         if chat_type == "supergroup":
             await client.set_chat_permissions(chat_id, ChatPermissions(
                 can_send_messages=True,
@@ -75,21 +74,28 @@ async def create_chat(client, message):
         except Exception as e:
             print(f"Failed to set protected content: {str(e)}")
 
-        await asyncio.sleep(3)
-
         # Добавление участников
         members_added = True
-        for user_id in all_users:
+        for user_id in members:
+            await asyncio.sleep(3)
             try:
                 await client.add_chat_members(chat_id, user_id)
-            except Exception as e:
+            except (FloodWait, PeerFlood, UserPrivacyRestricted) as e:
                 print(f"Failed to add user {user_id}: {str(e)}")
                 members_added = False
-            await asyncio.sleep(3)
+            except Exception as e:
+                print(f"Unexpected error adding user {user_id}: {str(e)}")
+                members_added = False
 
         # Назначение админов
         admins_promoted = True
         for admin_id in admins:
+            if admin_id not in members:
+                print(f"Admin {admin_id} not in members list, skipping")
+                admins_promoted = False
+                continue
+            
+            await asyncio.sleep(3)
             try:
                 await client.promote_chat_member(chat_id, admin_id, ChatPrivileges(
                     can_manage_chat=True,
@@ -104,7 +110,8 @@ async def create_chat(client, message):
             except Exception as e:
                 print(f"Failed to promote admin {admin_id}: {str(e)}")
                 admins_promoted = False
-            await asyncio.sleep(3)
+
+        await asyncio.sleep(3)
 
         # Получение ссылки приглашения
         try:
