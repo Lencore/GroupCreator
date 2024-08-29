@@ -11,20 +11,18 @@ app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_num
 async def create_chat(client, message):
     try:
         lines = message.text.split("\n")
-        if len(lines) < 5:
-            error_message = "Команда должна содержать 5 строк: title, type, avatar, admin, author"
-            report = f"false\nnull\nnull\nnull\nfalse\nError: {error_message}"
+        if len(lines) != 6:
+            error_message = "Команда должна содержать 6 строк: title, type, avatar, members, admins, sender"
+            report = f"false\n{lines[-1]}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
 
-        chat_title = lines[0]
-        chat_type = lines[1]
-        chat_avatar_name = lines[2]
-        chat_admin = int(lines[3])
-        chat_author = lines[4]  # Новая строка для автора команды
+        chat_title, chat_type, chat_avatar_name, members, admins, sender = lines
+        members = [int(m.strip()) for m in members.split(',') if m.strip()]
+        admins = [int(a.strip()) for a in admins.split(',') if a.strip()]
+        all_users = list(set(members + admins))
 
-        # Задержка перед выполнением команд
-        await asyncio.sleep(1)
+        await asyncio.sleep(3)
 
         # Создание чата
         if chat_type == "supergroup":
@@ -33,11 +31,13 @@ async def create_chat(client, message):
             chat = await client.create_channel(chat_title)
         else:
             error_message = "Wrong chat type, use supergroup or channel"
-            report = f"false\n{chat_author}\nnull\nnull\nfalse\nError: {error_message}"
+            report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
 
         chat_id = chat.id
+
+        await asyncio.sleep(3)
 
         # Подгрузка и установка аватарки
         avatar_path = os.path.join(os.getcwd(), f"{chat_avatar_name}.png")
@@ -46,17 +46,18 @@ async def create_chat(client, message):
                 await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
             except Exception as e:
                 error_message = f"Failed to set chat photo: {str(e)}"
-                report = f"false\n{chat_author}\n{chat_id}\nnull\nfalse\nError: {error_message}"
+                report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
                 await client.send_message(config.CHANNEL_ID, report)
                 return
         else:
             error_message = f"Avatar file {chat_avatar_name}.png not found"
-            report = f"false\n{chat_author}\n{chat_id}\nnull\nfalse\nError: {error_message}"
+            report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
 
+        await asyncio.sleep(3)
+
         # Настройка прав и добавление участников
-        await asyncio.sleep(1)  # Задержка
         if chat_type == "supergroup":
             await client.set_chat_permissions(chat_id, ChatPermissions(
                 can_send_messages=True,
@@ -66,27 +67,29 @@ async def create_chat(client, message):
                 can_invite_users=False
             ))
 
+        await asyncio.sleep(3)
+
         # Запрет на копирование контента
-        await asyncio.sleep(1)  # Задержка
         try:
             await client.set_chat_protected_content(chat_id, enabled=True)
         except Exception as e:
             print(f"Failed to set protected content: {str(e)}")
 
+        await asyncio.sleep(3)
+
         # Добавление участников
-        user_ids = [1747279, 142283509, 1873028973, chat_admin]
-        for user_id in user_ids:
-            await asyncio.sleep(1)  # Задержка
+        members_added = True
+        for user_id in all_users:
             try:
                 await client.add_chat_members(chat_id, user_id)
             except Exception as e:
                 print(f"Failed to add user {user_id}: {str(e)}")
+                members_added = False
+            await asyncio.sleep(3)
 
         # Назначение админов
-        admin_ids = [1873028973, chat_admin]
-        admin_results = {}
-        for admin_id in admin_ids:
-            await asyncio.sleep(1)  # Задержка
+        admins_promoted = True
+        for admin_id in admins:
             try:
                 await client.promote_chat_member(chat_id, admin_id, ChatPrivileges(
                     can_manage_chat=True,
@@ -98,31 +101,26 @@ async def create_chat(client, message):
                     can_pin_messages=True,
                     can_promote_members=True
                 ))
-                admin_results[admin_id] = "success"
             except Exception as e:
-                error_message = str(e)
-                admin_results[admin_id] = f"failed: {error_message}"
-                print(f"Failed to promote admin {admin_id}: {error_message}")
-
-        # Формирование отчета о назначении админов
-        admin_report = "\n".join([f"{admin_id}: {result}" for admin_id, result in admin_results.items()])
+                print(f"Failed to promote admin {admin_id}: {str(e)}")
+                admins_promoted = False
+            await asyncio.sleep(3)
 
         # Получение ссылки приглашения
         try:
-            await asyncio.sleep(1)  # Задержка
             invite_link = await client.export_chat_invite_link(chat_id)
         except Exception as e:
-            invite_link = "null"
+            invite_link = "false"
             error_message = f"Failed to get invite link: {str(e)}"
             await client.send_message(config.OWNER_ID, error_message)
 
         # Отправка отчета
-        report = f"true\n{chat_author}\n{chat_id}\n{invite_link}\n{admin_report}"
+        report = f"true\n{sender}\n{chat_id}\n{invite_link}\n{str(members_added).lower()}\n{str(admins_promoted).lower()}"
         await client.send_message(config.CHANNEL_ID, report)
 
     except Exception as e:
         error_message = f"Ошибка: {str(e)}"
-        report = f"false\n{chat_author}\nnull\nnull\nfalse\n{error_message}"
+        report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\n{error_message}"
         await client.send_message(config.CHANNEL_ID, report)
         await client.send_message(config.OWNER_ID, error_message)
 
