@@ -196,6 +196,11 @@ def signal_handler(signum, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-app.start()
-asyncio.get_event_loop().create_task(health_check())
-app.run()
+async def main():
+    await app.start()
+    logger.info("Bot started successfully")
+    asyncio.create_task(health_check())
+    await pyrogram.idle()
+
+if __name__ == "__main__":
+    app.run(main())
