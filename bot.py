@@ -21,7 +21,7 @@ async def create_chat(client, message):
         lines = message.text.split("\n")
         if len(lines) != 6:
             error_message = "Команда должна содержать 6 строк: title, type, avatar, members, admins, sender"
-            logger.error(error_message)
+            logger.error(f"Invalid command format: {error_message}")
             report = f"false\n{lines[-1]}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
@@ -39,7 +39,7 @@ async def create_chat(client, message):
             chat = await client.create_channel(chat_title)
         else:
             error_message = "Wrong chat type, use supergroup or channel"
-            logger.error(error_message)
+            logger.error(f"Invalid chat type: {error_message}")
             report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
             return
@@ -54,8 +54,9 @@ async def create_chat(client, message):
             try:
                 await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
             except Exception as e:
-                logger.error(f"Failed to set chat photo: {str(e)}")
-                report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {str(e)}"
+                error_message = f"Failed to set chat photo: {str(e)}"
+                logger.error(error_message)
+                report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
                 await client.send_message(config.CHANNEL_ID, report)
                 return
         else:
@@ -91,8 +92,11 @@ async def create_chat(client, message):
             await asyncio.sleep(3)
             try:
                 await client.add_chat_members(chat_id, user_id)
-            except Exception as e:
+            except (FloodWait, PeerFlood, UserPrivacyRestricted) as e:
                 logger.error(f"Failed to add user {user_id}: {str(e)}")
+                members_added = False
+            except Exception as e:
+                logger.error(f"Unexpected error adding user {user_id}: {str(e)}")
                 members_added = False
 
         # Назначение админов
@@ -126,43 +130,40 @@ async def create_chat(client, message):
             invite_link = await client.export_chat_invite_link(chat_id)
         except Exception as e:
             invite_link = "false"
-            logger.error(f"Failed to get invite link: {str(e)}")
-            await client.send_message(config.OWNER_ID, f"Failed to get invite link: {str(e)}")
+            error_message = f"Failed to get invite link: {str(e)}"
+            logger.error(error_message)
+            await client.send_message(config.OWNER_ID, error_message)
 
         # Отправка отчета
         report = f"true\n{sender}\n{chat_id}\n{invite_link}\n{str(members_added).lower()}\n{str(admins_promoted).lower()}"
         await client.send_message(config.CHANNEL_ID, report)
 
     except Exception as e:
-        logger.error(f"Unhandled exception: {str(e)}")
-        report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\nError: {str(e)}"
+        error_message = f"Ошибка: {str(e)}"
+        logger.error(f"Unhandled exception: {error_message}")
+        report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\n{error_message}"
         await client.send_message(config.CHANNEL_ID, report)
-        await client.send_message(config.OWNER_ID, f"Unhandled exception: {str(e)}")
+        await client.send_message(config.OWNER_ID, error_message)
 
 async def check_channel():
     while True:
         try:
             await app.get_chat(config.CHANNEL_ID)
-            print(f"Successfully checked channel {config.CHANNEL_ID}")
         except Exception as e:
             logger.error(f"Failed to check channel: {str(e)}")
         await asyncio.sleep(300)  # Проверка каждые 5 минут
 
 async def main():
+    await app.start()
+    print("Bot started successfully")
+    
+    check_channel_task = asyncio.create_task(check_channel())
+    
     try:
-        await app.start()
-        print("Bot started successfully")
-        print(f"Using channel ID: {config.CHANNEL_ID}")
-        
-        check_channel_task = asyncio.create_task(check_channel())
-        
         print("Bot is now listening for updates...")
         await app.idle()
-    except Exception as e:
-        logger.error(f"Error in main function: {str(e)}")
     finally:
-        if 'check_channel_task' in locals():
-            await check_channel_task
+        await check_channel_task
         await app.stop()
         print("Bot stopped")
 
