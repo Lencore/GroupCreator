@@ -169,20 +169,19 @@ async def check_channel():
         await asyncio.sleep(300)  # Проверка каждые 5 минут
 
 async def main():
+    await app.start()
+    logger.info("Bot started successfully")
+    me = await app.get_me()
+    logger.info(f"Bot info: id={me.id}, name={me.first_name}, username={me.username}")
+    
+    check_channel_task = asyncio.create_task(check_channel())
+    
     try:
-        await app.start()
-        logger.info("Bot started successfully")
-        me = await app.get_me()
-        logger.info(f"Bot info: id={me.id}, name={me.first_name}, username={me.username}")
-        
-        asyncio.create_task(check_channel())
-        
         await app.idle()
-    except Exception as e:
-        logger.critical(f"Failed to start bot: {str(e)}")
     finally:
+        await check_channel_task
         await app.stop()
         logger.info("Bot stopped")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    app.run(main())
