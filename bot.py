@@ -1,6 +1,7 @@
 from pyrogram import Client, filters, idle
 from pyrogram.types import ChatPermissions, ChatPrivileges
 from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted, AuthKeyUnregistered, SessionPasswordNeeded
+from pyrogram.raw import functions
 import config
 import os
 import asyncio
@@ -22,8 +23,22 @@ async def check_connection():
         logger.error(f"Ошибка при проверке соединения: {str(e)}")
         return False
 
+async def check_channel_raw(channel_id):
+    try:
+        result = await app.invoke(functions.channels.GetChannels(
+            id=[app.resolve_peer(channel_id)]
+        ))
+        logger.info(f"Информация о канале получена: {result}")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка при получении информации о канале через raw API: {str(e)}")
+        return False
+
 async def check_channel_permissions():
     try:
+        if not await check_channel_raw(config.CHANNEL_ID):
+            return False
+        
         chat = await app.get_chat(config.CHANNEL_ID)
         member = await app.get_chat_member(config.CHANNEL_ID, 'me')
         if member.status == "administrator":
@@ -131,6 +146,7 @@ async def main():
             logger.error("Не удалось установить соединение с Telegram. Бот остановлен.")
             return
         
+        logger.info(f"Проверка канала с ID: {config.CHANNEL_ID}")
         if not await check_channel_permissions():
             logger.error("У бота нет необходимых прав в канале. Проверьте настройки.")
             return
