@@ -5,6 +5,7 @@ import config
 import os
 import asyncio
 import logging
+from pyrogram import utils
 
 # Настройка логирования
 logging.basicConfig(level=logging.ERROR,
@@ -12,18 +13,25 @@ logging.basicConfig(level=logging.ERROR,
                     datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
-# Корректировка ID канала
-def correct_channel_id(channel_id):
-    if isinstance(channel_id, str):
-        if channel_id.startswith('-100'):
-            return int(channel_id)
-        elif channel_id.startswith('-'):
-            return int(f'-100{channel_id[1:]}')
-        else:
-            return int(channel_id)
-    return channel_id
+def get_peer_type_new(peer_id: int) -> str:
+    peer_id_str = str(peer_id)
+    if not peer_id_str.startswith("-"):
+        return "user"
+    elif peer_id_str.startswith("-100"):
+        return "channel"
+    else:
+        return "chat"
 
-CHANNEL_ID = correct_channel_id(config.CHANNEL_ID)
+# Заменяем стандартную функцию
+utils.get_peer_type = get_peer_type_new
+
+# Обработка ID канала
+CHANNEL_ID = config.CHANNEL_ID
+channel_type = get_peer_type_new(CHANNEL_ID)
+
+if channel_type != "channel":
+    print(f"Warning: The provided ID ({CHANNEL_ID}) does not seem to be a channel ID.")
+    # Здесь можно добавить дополнительную логику обработки, если нужно
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
@@ -154,6 +162,7 @@ async def create_chat(client, message):
         await client.send_message(config.OWNER_ID, error_message)
 
 print(f"Bot started. Using channel ID: {CHANNEL_ID}")
+print(f"Channel type detected: {channel_type}")
 
 try:
     app.run()
