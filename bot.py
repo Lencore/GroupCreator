@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import Client, filters, idle
 from pyrogram.types import ChatPermissions, ChatPrivileges
 from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted
 import config
@@ -104,7 +104,7 @@ async def create_chat(client, message):
 async def main():
     await app.start()
     logger.info("Бот запущен и ожидает команды")
-    await pyrogram.idle()
+    await idle()
 
 if __name__ == "__main__":
     app.run(main())
