@@ -153,33 +153,5 @@ async def create_chat(client, message):
         await client.send_message(CHANNEL_ID, report)
         await client.send_message(config.OWNER_ID, error_message)
 
-async def check_channel():
-    while True:
-        try:
-            chat = await app.get_chat(CHANNEL_ID)
-            print(f"Successfully checked channel {CHANNEL_ID}")
-            print(f"Channel title: {chat.title}")
-        except Exception as e:
-            logger.error(f"Failed to check channel: {str(e)}")
-        await asyncio.sleep(300)  # Проверка каждые 5 минут
-
-async def main():
-    try:
-        await app.start()
-        print("Bot started successfully")
-        print(f"Using channel ID: {CHANNEL_ID}")
-        
-        check_channel_task = asyncio.create_task(check_channel())
-        
-        print("Bot is now listening for updates...")
-        await app.idle()
-    except Exception as e:
-        logger.error(f"Error in main function: {str(e)}")
-    finally:
-        if 'check_channel_task' in locals():
-            await check_channel_task
-        await app.stop()
-        print("Bot stopped")
-
-if __name__ == "__main__":
-    app.run(main())
+print(f"Bot started. Using channel ID: {CHANNEL_ID}")
+app.run()
