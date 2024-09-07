@@ -8,19 +8,15 @@ import logging
 from datetime import datetime
 
 # Настройка логирования
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    filename='bot_log.txt',
-                    filemode='a')
+logging.basicConfig(level=logging.ERROR,
+                    format='%(asctime)s - %(levelname)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
 @app.on_message(filters.chat(config.CHANNEL_ID))
 async def create_chat(client, message):
-    logger.info(f"Received new message in channel {config.CHANNEL_ID}")
-    logger.debug(f"Message content: {message.text}")
-    
     try:
         lines = message.text.split("\n")
         if len(lines) != 6:
@@ -33,8 +29,6 @@ async def create_chat(client, message):
         chat_title, chat_type, chat_avatar_name, members, admins, sender = lines
         members = [int(m.strip()) for m in members.split(',') if m.strip()]
         admins = [int(a.strip()) for a in admins.split(',') if a.strip()]
-        
-        logger.info(f"Processing command: Create {chat_type} '{chat_title}' with {len(members)} members and {len(admins)} admins")
 
         await asyncio.sleep(3)
 
@@ -51,7 +45,6 @@ async def create_chat(client, message):
             return
 
         chat_id = chat.id
-        logger.info(f"Successfully created {chat_type} with ID: {chat_id}")
 
         await asyncio.sleep(3)
 
@@ -60,7 +53,6 @@ async def create_chat(client, message):
         if os.path.isfile(avatar_path):
             try:
                 await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
-                logger.info(f"Successfully set chat photo for {chat_id}")
             except Exception as e:
                 error_message = f"Failed to set chat photo: {str(e)}"
                 logger.error(error_message)
@@ -85,14 +77,12 @@ async def create_chat(client, message):
                 can_add_web_page_previews=True,
                 can_invite_users=False
             ))
-            logger.info(f"Set chat permissions for supergroup {chat_id}")
 
         await asyncio.sleep(3)
 
         # Запрет на копирование контента
         try:
             await client.set_chat_protected_content(chat_id, enabled=True)
-            logger.info(f"Enabled protected content for {chat_id}")
         except Exception as e:
             logger.error(f"Failed to set protected content: {str(e)}")
 
@@ -102,7 +92,6 @@ async def create_chat(client, message):
             await asyncio.sleep(3)
             try:
                 await client.add_chat_members(chat_id, user_id)
-                logger.info(f"Added user {user_id} to chat {chat_id}")
             except (FloodWait, PeerFlood, UserPrivacyRestricted) as e:
                 logger.error(f"Failed to add user {user_id}: {str(e)}")
                 members_added = False
@@ -114,7 +103,7 @@ async def create_chat(client, message):
         admins_promoted = True
         for admin_id in admins:
             if admin_id not in members:
-                logger.warning(f"Admin {admin_id} not in members list, skipping")
+                logger.error(f"Admin {admin_id} not in members list, skipping")
                 admins_promoted = False
                 continue
             
@@ -130,7 +119,6 @@ async def create_chat(client, message):
                     can_pin_messages=True,
                     can_promote_members=True
                 ))
-                logger.info(f"Promoted user {admin_id} to admin in chat {chat_id}")
             except Exception as e:
                 logger.error(f"Failed to promote admin {admin_id}: {str(e)}")
                 admins_promoted = False
@@ -140,7 +128,6 @@ async def create_chat(client, message):
         # Получение ссылки приглашения
         try:
             invite_link = await client.export_chat_invite_link(chat_id)
-            logger.info(f"Generated invite link for chat {chat_id}")
         except Exception as e:
             invite_link = "false"
             error_message = f"Failed to get invite link: {str(e)}"
@@ -150,7 +137,6 @@ async def create_chat(client, message):
         # Отправка отчета
         report = f"true\n{sender}\n{chat_id}\n{invite_link}\n{str(members_added).lower()}\n{str(admins_promoted).lower()}"
         await client.send_message(config.CHANNEL_ID, report)
-        logger.info(f"Sent report for chat {chat_id}")
 
     except Exception as e:
         error_message = f"Ошибка: {str(e)}"
@@ -162,33 +148,24 @@ async def create_chat(client, message):
 async def check_channel():
     while True:
         try:
-            chat = await app.get_chat(config.CHANNEL_ID)
-            logger.info(f"Successfully checked channel {config.CHANNEL_ID}")
-            async for message in app.get_chat_history(config.CHANNEL_ID, limit=1):
-                logger.info(f"Last message in channel: {message.text[:50]}...")
+            await app.get_chat(config.CHANNEL_ID)
         except Exception as e:
             logger.error(f"Failed to check channel: {str(e)}")
         await asyncio.sleep(300)  # Проверка каждые 5 минут
 
-@app.on_message(filters.all)
-async def log_all_messages(client, message):
-    logger.debug(f"Received message in chat {message.chat.id}: {message.text}")
-
 async def main():
     await app.start()
-    logger.info("Bot started successfully")
-    me = await app.get_me()
-    logger.info(f"Bot info: id={me.id}, name={me.first_name}, username={me.username}")
+    print("Bot started successfully")
     
     check_channel_task = asyncio.create_task(check_channel())
     
     try:
-        logger.info("Bot is now listening for updates...")
+        print("Bot is now listening for updates...")
         await app.idle()
     finally:
         await check_channel_task
         await app.stop()
-        logger.info("Bot stopped")
+        print("Bot stopped")
 
 if __name__ == "__main__":
     app.run(main())
