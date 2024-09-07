@@ -1,6 +1,6 @@
 from pyrogram import Client, filters, idle
 from pyrogram.types import ChatPermissions, ChatPrivileges
-from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted, AuthKeyUnregistered, SessionPasswordNeeded
+from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted, AuthKeyUnregistered, SessionPasswordNeeded, PeerIdInvalid
 from pyrogram.raw import functions
 import config
 import os
@@ -25,11 +25,13 @@ async def check_connection():
 
 async def check_channel_raw(channel_id):
     try:
-        result = await app.invoke(functions.channels.GetChannels(
-            id=[app.resolve_peer(channel_id)]
-        ))
+        peer = await app.resolve_peer(channel_id)
+        result = await app.invoke(functions.channels.GetChannels(id=[peer]))
         logger.info(f"Информация о канале получена: {result}")
         return True
+    except PeerIdInvalid:
+        logger.error(f"Неверный ID канала: {channel_id}")
+        return False
     except Exception as e:
         logger.error(f"Ошибка при получении информации о канале через raw API: {str(e)}")
         return False
