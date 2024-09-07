@@ -5,7 +5,6 @@ import config
 import os
 import asyncio
 import logging
-from datetime import datetime
 
 # Настройка логирования
 logging.basicConfig(level=logging.ERROR,
@@ -34,7 +33,6 @@ async def create_chat(client, message):
         lines = message.text.split("\n")
         if len(lines) != 6:
             error_message = "Команда должна содержать 6 строк: title, type, avatar, members, admins, sender"
-            logger.error(error_message)
             report = f"false\n{lines[-1]}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(CHANNEL_ID, report)
             return
@@ -42,7 +40,7 @@ async def create_chat(client, message):
         chat_title, chat_type, chat_avatar_name, members, admins, sender = lines
         members = [int(m.strip()) for m in members.split(',') if m.strip()]
         admins = [int(a.strip()) for a in admins.split(',') if a.strip()]
-
+        
         await asyncio.sleep(3)
 
         # Создание чата
@@ -52,7 +50,6 @@ async def create_chat(client, message):
             chat = await client.create_channel(chat_title)
         else:
             error_message = "Wrong chat type, use supergroup or channel"
-            logger.error(error_message)
             report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(CHANNEL_ID, report)
             return
@@ -67,13 +64,12 @@ async def create_chat(client, message):
             try:
                 await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
             except Exception as e:
-                logger.error(f"Failed to set chat photo: {str(e)}")
-                report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {str(e)}"
+                error_message = f"Failed to set chat photo: {str(e)}"
+                report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
                 await client.send_message(CHANNEL_ID, report)
                 return
         else:
             error_message = f"Avatar file {chat_avatar_name}.png not found"
-            logger.error(error_message)
             report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(CHANNEL_ID, report)
             return
@@ -104,8 +100,11 @@ async def create_chat(client, message):
             await asyncio.sleep(3)
             try:
                 await client.add_chat_members(chat_id, user_id)
-            except Exception as e:
+            except (FloodWait, PeerFlood, UserPrivacyRestricted) as e:
                 logger.error(f"Failed to add user {user_id}: {str(e)}")
+                members_added = False
+            except Exception as e:
+                logger.error(f"Unexpected error adding user {user_id}: {str(e)}")
                 members_added = False
 
         # Назначение админов
@@ -139,18 +138,20 @@ async def create_chat(client, message):
             invite_link = await client.export_chat_invite_link(chat_id)
         except Exception as e:
             invite_link = "false"
-            logger.error(f"Failed to get invite link: {str(e)}")
-            await client.send_message(config.OWNER_ID, f"Failed to get invite link: {str(e)}")
+            error_message = f"Failed to get invite link: {str(e)}"
+            logger.error(error_message)
+            await client.send_message(config.OWNER_ID, error_message)
 
         # Отправка отчета
         report = f"true\n{sender}\n{chat_id}\n{invite_link}\n{str(members_added).lower()}\n{str(admins_promoted).lower()}"
         await client.send_message(CHANNEL_ID, report)
 
     except Exception as e:
-        logger.error(f"Unhandled exception: {str(e)}")
-        report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\nError: {str(e)}"
+        error_message = f"Ошибка: {str(e)}"
+        logger.error(f"Unhandled exception: {error_message}")
+        report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\n{error_message}"
         await client.send_message(CHANNEL_ID, report)
-        await client.send_message(config.OWNER_ID, f"Unhandled exception: {str(e)}")
+        await client.send_message(config.OWNER_ID, error_message)
 
 async def check_channel():
     while True:
