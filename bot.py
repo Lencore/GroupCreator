@@ -154,4 +154,9 @@ async def create_chat(client, message):
         await client.send_message(config.OWNER_ID, error_message)
 
 print(f"Bot started. Using channel ID: {CHANNEL_ID}")
-app.run()
+
+try:
+    app.run()
+except Exception as e:
+    print(f"Error starting the bot: {str(e)}")
+    logger.error(f"Error starting the bot: {str(e)}")
