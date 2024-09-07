@@ -1,18 +1,40 @@
 from pyrogram import Client, filters, idle
 from pyrogram.types import ChatPermissions, ChatPrivileges
-from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted
+from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted, AuthKeyUnregistered, SessionPasswordNeeded
 import config
 import os
 import asyncio
 import logging
 
-# Настройка минимального логирования
 logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(message)s',
+                    format='%(asctime)s - %(levelname)s - %(message)s',
                     handlers=[logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
+
+async def check_connection():
+    try:
+        await app.get_me()
+        logger.info("Соединение с Telegram успешно установлено.")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка при проверке соединения: {str(e)}")
+        return False
+
+async def check_channel_permissions():
+    try:
+        chat = await app.get_chat(config.CHANNEL_ID)
+        member = await app.get_chat_member(config.CHANNEL_ID, 'me')
+        if member.status == "administrator":
+            logger.info(f"Бот имеет права администратора в канале {chat.title}")
+            return True
+        else:
+            logger.warning(f"Бот не имеет прав администратора в канале {chat.title}")
+            return False
+    except Exception as e:
+        logger.error(f"Ошибка при проверке прав в канале: {str(e)}")
+        return False
 
 async def log_and_report(client, sender, success, chat_id, invite_link, members_added, admins_promoted, message):
     report = f"{'Успешно' if success else 'Ошибка'}: {message}"
@@ -21,7 +43,7 @@ async def log_and_report(client, sender, success, chat_id, invite_link, members_
 
 @app.on_message(filters.chat(config.CHANNEL_ID))
 async def create_chat(client, message):
-    logger.info(f"Получена команда: {message.text.split()[0]}")
+    logger.info(f"Получена команда: {message.text}")
     
     try:
         lines = message.text.split("\n")
@@ -99,12 +121,32 @@ async def create_chat(client, message):
                              f"Чат создан: {chat_id}\nСсылка: {invite_link}\nУчастники добавлены: {'Да' if members_added else 'Нет'}\nАдмины назначены: {'Да' if admins_promoted else 'Нет'}")
 
     except Exception as e:
+        logger.error(f"Ошибка при создании чата: {str(e)}", exc_info=True)
         await log_and_report(client, "Unknown", False, "N/A", "N/A", False, False, f"Ошибка при создании чата: {str(e)}")
 
 async def main():
-    await app.start()
-    logger.info("Бот запущен и ожидает команды")
-    await idle()
+    try:
+        await app.start()
+        if not await check_connection():
+            logger.error("Не удалось установить соединение с Telegram. Бот остановлен.")
+            return
+        
+        if not await check_channel_permissions():
+            logger.error("У бота нет необходимых прав в канале. Проверьте настройки.")
+            return
+
+        me = await app.get_me()
+        logger.info(f"Бот запущен. Username: @{me.username}, ID: {me.id}")
+        logger.info(f"Ожидание команд в канале с ID: {config.CHANNEL_ID}")
+        await idle()
+    except AuthKeyUnregistered:
+        logger.error("Ошибка аутентификации. Попробуйте удалить файл сессии и запустить бота заново.")
+    except SessionPasswordNeeded:
+        logger.error("Требуется пароль двухфакторной аутентификации. Убедитесь, что вы правильно настроили 2FA.")
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при запуске бота: {str(e)}", exc_info=True)
+    finally:
+        await app.stop()
 
 if __name__ == "__main__":
     app.run(main())
