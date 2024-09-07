@@ -1,14 +1,17 @@
 from pyrogram import Client, filters
 from pyrogram.types import ChatPermissions, ChatPrivileges
 from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted
+import pyrogram.raw.types
+import pyrogram.raw.functions
 import config
 import os
 import asyncio
 import logging
 from datetime import datetime
+import signal
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s',
                     handlers=[
                         logging.FileHandler("bot_log.txt"),
@@ -169,4 +172,30 @@ async def create_chat(client, message):
         logger.error(error_message)
         await log_and_report(client, sender, False, chat_id, invite_link, members_added, admins_promoted, error_message)
 
+@app.on_raw_update()
+async def raw_update_handler(client, update, users, chats):
+    if isinstance(update, pyrogram.raw.types.UpdatesTooLong):
+        logger.info("Received UpdatesTooLong. Syncing updates...")
+        await client.invoke(pyrogram.raw.functions.updates.GetState())
+        logger.info("Updates synced successfully")
+
+async def health_check():
+    while True:
+        await asyncio.sleep(300)  # Проверка каждые 5 минут
+        try:
+            me = await app.get_me()
+            logger.info(f"Bot is alive. Username: @{me.username}")
+        except Exception as e:
+            logger.error(f"Health check failed: {str(e)}")
+
+def signal_handler(signum, frame):
+    logger.info(f"Received signal {signum}. Shutting down...")
+    app.stop()
+    logger.info("Bot stopped")
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+app.start()
+asyncio.get_event_loop().create_task(health_check())
 app.run()
