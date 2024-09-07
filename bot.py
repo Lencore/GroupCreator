@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     filename='bot_log.txt',
                     filemode='a')
@@ -19,6 +19,8 @@ app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_num
 @app.on_message(filters.chat(config.CHANNEL_ID))
 async def create_chat(client, message):
     logger.info(f"Received new message in channel {config.CHANNEL_ID}")
+    logger.debug(f"Message content: {message.text}")
+    
     try:
         lines = message.text.split("\n")
         if len(lines) != 6:
@@ -168,6 +170,10 @@ async def check_channel():
             logger.error(f"Failed to check channel: {str(e)}")
         await asyncio.sleep(300)  # Проверка каждые 5 минут
 
+@app.on_message(filters.all)
+async def log_all_messages(client, message):
+    logger.debug(f"Received message in chat {message.chat.id}: {message.text}")
+
 async def main():
     await app.start()
     logger.info("Bot started successfully")
@@ -177,6 +183,7 @@ async def main():
     check_channel_task = asyncio.create_task(check_channel())
     
     try:
+        logger.info("Bot is now listening for updates...")
         await app.idle()
     finally:
         await check_channel_task
