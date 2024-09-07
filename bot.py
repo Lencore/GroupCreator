@@ -1,76 +1,27 @@
-from pyrogram import Client, filters, idle
+from pyrogram import Client, filters
 from pyrogram.types import ChatPermissions, ChatPrivileges
-from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted, AuthKeyUnregistered, SessionPasswordNeeded, PeerIdInvalid
-from pyrogram.raw import functions
+from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted
 import config
 import os
 import asyncio
-import logging
-
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[logging.StreamHandler()])
-logger = logging.getLogger(__name__)
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
-async def check_connection():
-    try:
-        await app.get_me()
-        logger.info("Соединение с Telegram успешно установлено.")
-        return True
-    except Exception as e:
-        logger.error(f"Ошибка при проверке соединения: {str(e)}")
-        return False
-
-async def check_channel_raw(channel_id):
-    try:
-        peer = await app.resolve_peer(channel_id)
-        result = await app.invoke(functions.channels.GetChannels(id=[peer]))
-        logger.info(f"Информация о канале получена: {result}")
-        return True
-    except PeerIdInvalid:
-        logger.error(f"Неверный ID канала: {channel_id}")
-        return False
-    except Exception as e:
-        logger.error(f"Ошибка при получении информации о канале через raw API: {str(e)}")
-        return False
-
-async def check_channel_permissions():
-    try:
-        if not await check_channel_raw(config.CHANNEL_ID):
-            return False
-        
-        chat = await app.get_chat(config.CHANNEL_ID)
-        member = await app.get_chat_member(config.CHANNEL_ID, 'me')
-        if member.status == "administrator":
-            logger.info(f"Бот имеет права администратора в канале {chat.title}")
-            return True
-        else:
-            logger.warning(f"Бот не имеет прав администратора в канале {chat.title}")
-            return False
-    except Exception as e:
-        logger.error(f"Ошибка при проверке прав в канале: {str(e)}")
-        return False
-
-async def log_and_report(client, sender, success, chat_id, invite_link, members_added, admins_promoted, message):
-    report = f"{'Успешно' if success else 'Ошибка'}: {message}"
-    logger.info(report)
-    await client.send_message(config.CHANNEL_ID, report)
-
 @app.on_message(filters.chat(config.CHANNEL_ID))
 async def create_chat(client, message):
-    logger.info(f"Получена команда: {message.text}")
-    
     try:
         lines = message.text.split("\n")
         if len(lines) != 6:
-            await log_and_report(client, "Unknown", False, "N/A", "N/A", False, False, "Неверный формат команды")
+            error_message = "Команда должна содержать 6 строк: title, type, avatar, members, admins, sender"
+            report = f"false\n{lines[-1]}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
+            await client.send_message(config.CHANNEL_ID, report)
             return
 
         chat_title, chat_type, chat_avatar_name, members, admins, sender = lines
         members = [int(m.strip()) for m in members.split(',') if m.strip()]
         admins = [int(a.strip()) for a in admins.split(',') if a.strip()]
+        
+        await asyncio.sleep(3)
 
         # Создание чата
         if chat_type == "supergroup":
@@ -78,17 +29,34 @@ async def create_chat(client, message):
         elif chat_type == "channel":
             chat = await client.create_channel(chat_title)
         else:
-            await log_and_report(client, sender, False, "N/A", "N/A", False, False, "Неверный тип чата")
+            error_message = "Wrong chat type, use supergroup or channel"
+            report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
+            await client.send_message(config.CHANNEL_ID, report)
             return
 
         chat_id = chat.id
 
-        # Установка аватара
+        await asyncio.sleep(3)
+
+        # Подгрузка и установка аватарки
         avatar_path = os.path.join(os.getcwd(), f"{chat_avatar_name}.png")
         if os.path.isfile(avatar_path):
-            await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
+            try:
+                await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
+            except Exception as e:
+                error_message = f"Failed to set chat photo: {str(e)}"
+                report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
+                await client.send_message(config.CHANNEL_ID, report)
+                return
+        else:
+            error_message = f"Avatar file {chat_avatar_name}.png not found"
+            report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
+            await client.send_message(config.CHANNEL_ID, report)
+            return
 
-        # Настройка прав для супергруппы
+        await asyncio.sleep(3)
+
+        # Настройка прав
         if chat_type == "supergroup":
             await client.set_chat_permissions(chat_id, ChatPermissions(
                 can_send_messages=True,
@@ -98,73 +66,69 @@ async def create_chat(client, message):
                 can_invite_users=False
             ))
 
+        await asyncio.sleep(3)
+
         # Запрет на копирование контента
-        await client.set_chat_protected_content(chat_id, enabled=True)
+        try:
+            await client.set_chat_protected_content(chat_id, enabled=True)
+        except Exception as e:
+            print(f"Failed to set protected content: {str(e)}")
 
         # Добавление участников
         members_added = True
         for user_id in members:
+            await asyncio.sleep(3)
             try:
                 await client.add_chat_members(chat_id, user_id)
-            except (FloodWait, PeerFlood, UserPrivacyRestricted, Exception):
+            except (FloodWait, PeerFlood, UserPrivacyRestricted) as e:
+                print(f"Failed to add user {user_id}: {str(e)}")
+                members_added = False
+            except Exception as e:
+                print(f"Unexpected error adding user {user_id}: {str(e)}")
                 members_added = False
 
         # Назначение админов
         admins_promoted = True
         for admin_id in admins:
-            if admin_id in members:
-                try:
-                    await client.promote_chat_member(chat_id, admin_id, ChatPrivileges(
-                        can_manage_chat=True,
-                        can_post_messages=True,
-                        can_edit_messages=True,
-                        can_delete_messages=True,
-                        can_invite_users=True,
-                        can_restrict_members=True,
-                        can_pin_messages=True,
-                        can_promote_members=True
-                    ))
-                except Exception:
-                    admins_promoted = False
+            if admin_id not in members:
+                print(f"Admin {admin_id} not in members list, skipping")
+                admins_promoted = False
+                continue
+            
+            await asyncio.sleep(3)
+            try:
+                await client.promote_chat_member(chat_id, admin_id, ChatPrivileges(
+                    can_manage_chat=True,
+                    can_post_messages=True,
+                    can_edit_messages=True,
+                    can_delete_messages=True,
+                    can_invite_users=True,
+                    can_restrict_members=True,
+                    can_pin_messages=True,
+                    can_promote_members=True
+                ))
+            except Exception as e:
+                print(f"Failed to promote admin {admin_id}: {str(e)}")
+                admins_promoted = False
+
+        await asyncio.sleep(3)
 
         # Получение ссылки приглашения
         try:
             invite_link = await client.export_chat_invite_link(chat_id)
-        except Exception:
-            invite_link = "Не удалось создать"
+        except Exception as e:
+            invite_link = "false"
+            error_message = f"Failed to get invite link: {str(e)}"
+            await client.send_message(config.OWNER_ID, error_message)
 
         # Отправка отчета
-        await log_and_report(client, sender, True, chat_id, invite_link, members_added, admins_promoted, 
-                             f"Чат создан: {chat_id}\nСсылка: {invite_link}\nУчастники добавлены: {'Да' if members_added else 'Нет'}\nАдмины назначены: {'Да' if admins_promoted else 'Нет'}")
+        report = f"true\n{sender}\n{chat_id}\n{invite_link}\n{str(members_added).lower()}\n{str(admins_promoted).lower()}"
+        await client.send_message(config.CHANNEL_ID, report)
 
     except Exception as e:
-        logger.error(f"Ошибка при создании чата: {str(e)}", exc_info=True)
-        await log_and_report(client, "Unknown", False, "N/A", "N/A", False, False, f"Ошибка при создании чата: {str(e)}")
+        error_message = f"Ошибка: {str(e)}"
+        report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\n{error_message}"
+        await client.send_message(config.CHANNEL_ID, report)
+        await client.send_message(config.OWNER_ID, error_message)
 
-async def main():
-    try:
-        await app.start()
-        if not await check_connection():
-            logger.error("Не удалось установить соединение с Telegram. Бот остановлен.")
-            return
-        
-        logger.info(f"Проверка канала с ID: {config.CHANNEL_ID}")
-        if not await check_channel_permissions():
-            logger.error("У бота нет необходимых прав в канале. Проверьте настройки.")
-            return
-
-        me = await app.get_me()
-        logger.info(f"Бот запущен. Username: @{me.username}, ID: {me.id}")
-        logger.info(f"Ожидание команд в канале с ID: {config.CHANNEL_ID}")
-        await idle()
-    except AuthKeyUnregistered:
-        logger.error("Ошибка аутентификации. Попробуйте удалить файл сессии и запустить бота заново.")
-    except SessionPasswordNeeded:
-        logger.error("Требуется пароль двухфакторной аутентификации. Убедитесь, что вы правильно настроили 2FA.")
-    except Exception as e:
-        logger.error(f"Неожиданная ошибка при запуске бота: {str(e)}", exc_info=True)
-    finally:
-        await app.stop()
-
-if __name__ == "__main__":
-    app.run(main())
+app.run()
