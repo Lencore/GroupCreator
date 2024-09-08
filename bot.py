@@ -4,45 +4,17 @@ from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted
 import config
 import os
 import asyncio
-import logging
-from pyrogram import utils
-
-# Настройка логирования
-logging.basicConfig(level=logging.ERROR,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
-logger = logging.getLogger(__name__)
-
-def get_peer_type_new(peer_id: int) -> str:
-    peer_id_str = str(peer_id)
-    if not peer_id_str.startswith("-"):
-        return "user"
-    elif peer_id_str.startswith("-100"):
-        return "channel"
-    else:
-        return "chat"
-
-# Заменяем стандартную функцию
-utils.get_peer_type = get_peer_type_new
-
-# Обработка ID канала
-CHANNEL_ID = config.CHANNEL_ID
-channel_type = get_peer_type_new(CHANNEL_ID)
-
-if channel_type != "channel":
-    print(f"Warning: The provided ID ({CHANNEL_ID}) does not seem to be a channel ID.")
-    # Здесь можно добавить дополнительную логику обработки, если нужно
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
-@app.on_message(filters.chat(CHANNEL_ID))
+@app.on_message(filters.chat(config.CHANNEL_ID))
 async def create_chat(client, message):
     try:
         lines = message.text.split("\n")
         if len(lines) != 6:
             error_message = "Команда должна содержать 6 строк: title, type, avatar, members, admins, sender"
             report = f"false\n{lines[-1]}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
-            await client.send_message(CHANNEL_ID, report)
+            await client.send_message(config.CHANNEL_ID, report)
             return
 
         chat_title, chat_type, chat_avatar_name, members, admins, sender = lines
@@ -59,7 +31,7 @@ async def create_chat(client, message):
         else:
             error_message = "Wrong chat type, use supergroup or channel"
             report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\nError: {error_message}"
-            await client.send_message(CHANNEL_ID, report)
+            await client.send_message(config.CHANNEL_ID, report)
             return
 
         chat_id = chat.id
@@ -74,12 +46,12 @@ async def create_chat(client, message):
             except Exception as e:
                 error_message = f"Failed to set chat photo: {str(e)}"
                 report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
-                await client.send_message(CHANNEL_ID, report)
+                await client.send_message(config.CHANNEL_ID, report)
                 return
         else:
             error_message = f"Avatar file {chat_avatar_name}.png not found"
             report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
-            await client.send_message(CHANNEL_ID, report)
+            await client.send_message(config.CHANNEL_ID, report)
             return
 
         await asyncio.sleep(3)
@@ -100,7 +72,7 @@ async def create_chat(client, message):
         try:
             await client.set_chat_protected_content(chat_id, enabled=True)
         except Exception as e:
-            logger.error(f"Failed to set protected content: {str(e)}")
+            print(f"Failed to set protected content: {str(e)}")
 
         # Добавление участников
         members_added = True
@@ -109,17 +81,17 @@ async def create_chat(client, message):
             try:
                 await client.add_chat_members(chat_id, user_id)
             except (FloodWait, PeerFlood, UserPrivacyRestricted) as e:
-                logger.error(f"Failed to add user {user_id}: {str(e)}")
+                print(f"Failed to add user {user_id}: {str(e)}")
                 members_added = False
             except Exception as e:
-                logger.error(f"Unexpected error adding user {user_id}: {str(e)}")
+                print(f"Unexpected error adding user {user_id}: {str(e)}")
                 members_added = False
 
         # Назначение админов
         admins_promoted = True
         for admin_id in admins:
             if admin_id not in members:
-                logger.error(f"Admin {admin_id} not in members list, skipping")
+                print(f"Admin {admin_id} not in members list, skipping")
                 admins_promoted = False
                 continue
             
@@ -136,7 +108,7 @@ async def create_chat(client, message):
                     can_promote_members=True
                 ))
             except Exception as e:
-                logger.error(f"Failed to promote admin {admin_id}: {str(e)}")
+                print(f"Failed to promote admin {admin_id}: {str(e)}")
                 admins_promoted = False
 
         await asyncio.sleep(3)
@@ -147,25 +119,16 @@ async def create_chat(client, message):
         except Exception as e:
             invite_link = "false"
             error_message = f"Failed to get invite link: {str(e)}"
-            logger.error(error_message)
             await client.send_message(config.OWNER_ID, error_message)
 
         # Отправка отчета
         report = f"true\n{sender}\n{chat_id}\n{invite_link}\n{str(members_added).lower()}\n{str(admins_promoted).lower()}"
-        await client.send_message(CHANNEL_ID, report)
+        await client.send_message(config.CHANNEL_ID, report)
 
     except Exception as e:
         error_message = f"Ошибка: {str(e)}"
-        logger.error(f"Unhandled exception: {error_message}")
         report = f"false\n{sender}\nfalse\nfalse\nfalse\nfalse\n{error_message}"
-        await client.send_message(CHANNEL_ID, report)
+        await client.send_message(config.CHANNEL_ID, report)
         await client.send_message(config.OWNER_ID, error_message)
 
-print(f"Bot started. Using channel ID: {CHANNEL_ID}")
-print(f"Channel type detected: {channel_type}")
-
-try:
-    app.run()
-except Exception as e:
-    print(f"Error starting the bot: {str(e)}")
-    logger.error(f"Error starting the bot: {str(e)}")
+app.run()
