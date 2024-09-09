@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import ChatPermissions, ChatPrivileges
-from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted
+from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted, UserAlreadyParticipant
 import config
 import os
 import asyncio
@@ -14,6 +14,8 @@ async def join_channel():
     try:
         await app.join_chat(CHANNEL_LINK)
         print(f"Успешно присоединился к каналу {CHANNEL_ID}")
+    except UserAlreadyParticipant:
+        print(f"Бот уже является участником канала {CHANNEL_ID}")
     except Exception as e:
         print(f"Не удалось присоединиться к каналу: {e}")
 
@@ -144,6 +146,7 @@ async def create_chat(client, message):
 async def main():
     await app.start()
     await join_channel()
-    await app.idle()
+    await asyncio.Event().wait()  # Заменяем app.idle() на бесконечное ожидание
 
-app.run(main())
+if __name__ == "__main__":
+    app.run(main())
