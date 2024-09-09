@@ -7,7 +7,7 @@ import asyncio
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
-CHANNEL_ID = -1002208357552
+CHANNEL_ID = -1002301760188
 CHANNEL_LINK = "https://t.me/+Odc4YrC33v82Njli"
 
 async def join_channel():
