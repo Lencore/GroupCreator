@@ -10,6 +10,10 @@ import asyncio
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Отключаем лишние сообщения от Pyrogram
+logging.getLogger("pyrogram").setLevel(logging.WARNING)
+logging.getLogger("pyrogram.session.auth").disabled = True
+
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
 CHANNEL_LINK = "https://t.me/+Odc4YrC33v82Njli"
@@ -38,12 +42,11 @@ async def get_chat(chat_id):
 
 async def get_peer_id():
     try:
-        async with app:
-            async for dialog in app.get_dialogs():
-                chat_type = dialog.chat.type
-                chat_id = dialog.chat.id
-                chat_title = dialog.chat.title or dialog.chat.first_name or "Unnamed"
-                logger.info(f"Найден диалог: {chat_type} - {chat_id} - {chat_title}")
+        async for dialog in app.get_dialogs():
+            chat_type = dialog.chat.type
+            chat_id = dialog.chat.id
+            chat_title = dialog.chat.title or dialog.chat.first_name or "Unnamed"
+            logger.info(f"Найден диалог: {chat_type} - {chat_id} - {chat_title}")
         return True
     except Exception as e:
         logger.error(f"Ошибка при получении списка диалогов: {e}")
