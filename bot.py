@@ -1,14 +1,13 @@
 import logging
-from pyrogram import Client, filters, idle
+from pyrogram import Client, filters
 from pyrogram.types import ChatPermissions, ChatPrivileges
 from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted, UserAlreadyParticipant
-from pyrogram.handlers import MessageHandler
 import config
 import os
 import asyncio
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
@@ -162,15 +161,20 @@ async def create_chat(client, message):
         await client.send_message(config.OWNER_ID, error_message)
 
 async def main():
-    await app.start()
-    logger.info("Бот запущен")
-    await join_channel()
-    
-    # Регистрация обработчика сообщений
-    app.add_handler(MessageHandler(create_chat, filters.chat(config.CHANNEL_ID)))
-    
-    logger.info("Ожидание новых сообщений...")
-    await idle()
+    async with app:
+        await join_channel()
+        logger.info("Бот запущен и готов к работе")
+        
+        while True:
+            try:
+                async for message in app.get_chat_history(config.CHANNEL_ID, limit=1):
+                    if message.text:
+                        await create_chat(app, message)
+                    break
+            except Exception as e:
+                logger.error(f"Ошибка при получении обновлений: {e}")
+            
+            await asyncio.sleep(5)  # Проверяем новые сообщения каждые 5 секунд
 
 if __name__ == "__main__":
     app.run(main())
