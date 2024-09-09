@@ -7,6 +7,16 @@ import asyncio
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
+CHANNEL_ID = -1002208357552
+CHANNEL_LINK = "https://t.me/+Odc4YrC33v82Njli"
+
+async def join_channel():
+    try:
+        await app.join_chat(CHANNEL_LINK)
+        print(f"Успешно присоединился к каналу {CHANNEL_ID}")
+    except Exception as e:
+        print(f"Не удалось присоединиться к каналу: {e}")
+
 @app.on_message(filters.chat(config.CHANNEL_ID))
 async def create_chat(client, message):
     try:
@@ -131,4 +141,9 @@ async def create_chat(client, message):
         await client.send_message(config.CHANNEL_ID, report)
         await client.send_message(config.OWNER_ID, error_message)
 
-app.run()
+async def main():
+    await app.start()
+    await join_channel()
+    await app.idle()
+
+app.run(main())
