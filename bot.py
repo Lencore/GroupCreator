@@ -7,7 +7,7 @@ import os
 import asyncio
 
 # Настройка логирования
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
@@ -18,14 +18,16 @@ CHANNEL_LINK = "https://t.me/+Odc4YrC33v82Njli"
 async def join_channel():
     try:
         await app.join_chat(CHANNEL_LINK)
-        logger.info(f"Успешно присоединился к каналу {CHANNEL_ID}")
     except UserAlreadyParticipant:
-        logger.info(f"Бот уже является участником канала {CHANNEL_ID}")
+        pass
     except Exception as e:
         logger.error(f"Не удалось присоединиться к каналу: {e}")
 
 async def create_chat(client, message):
-    logger.info(f"Получено новое сообщение в канале {message.chat.id}")
+    if message.text.startswith(('true', 'false')):
+        return  # Пропускаем сообщения с отчетами
+
+    logger.info(f"Получена новая команда в канале {message.chat.id}")
     try:
         lines = message.text.split("\n")
         if len(lines) != 6:
@@ -61,18 +63,15 @@ async def create_chat(client, message):
         if os.path.isfile(avatar_path):
             try:
                 await client.set_chat_photo(chat_id=chat_id, photo=avatar_path)
-                logger.info(f"Установлена аватарка для чата {chat_id}")
             except Exception as e:
                 error_message = f"Failed to set chat photo: {str(e)}"
                 report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
                 await client.send_message(config.CHANNEL_ID, report)
-                logger.error(error_message)
                 return
         else:
             error_message = f"Avatar file {chat_avatar_name}.png not found"
             report = f"false\n{sender}\n{chat_id}\nfalse\nfalse\nfalse\nError: {error_message}"
             await client.send_message(config.CHANNEL_ID, report)
-            logger.error(error_message)
             return
 
         await asyncio.sleep(3)
@@ -86,14 +85,12 @@ async def create_chat(client, message):
                 can_add_web_page_previews=True,
                 can_invite_users=False
             ))
-            logger.info(f"Установлены права для супергруппы {chat_id}")
 
         await asyncio.sleep(3)
 
         # Запрет на копирование контента
         try:
             await client.set_chat_protected_content(chat_id, enabled=True)
-            logger.info(f"Установлен запрет на копирование контента для чата {chat_id}")
         except Exception as e:
             logger.error(f"Failed to set protected content for chat {chat_id}: {str(e)}")
 
@@ -103,7 +100,6 @@ async def create_chat(client, message):
             await asyncio.sleep(3)
             try:
                 await client.add_chat_members(chat_id, user_id)
-                logger.info(f"Добавлен участник {user_id} в чат {chat_id}")
             except (FloodWait, PeerFlood, UserPrivacyRestricted) as e:
                 logger.error(f"Failed to add user {user_id} to chat {chat_id}: {str(e)}")
                 members_added = False
@@ -131,7 +127,6 @@ async def create_chat(client, message):
                     can_pin_messages=True,
                     can_promote_members=True
                 ))
-                logger.info(f"Пользователь {admin_id} назначен администратором в чате {chat_id}")
             except Exception as e:
                 logger.error(f"Failed to promote admin {admin_id} in chat {chat_id}: {str(e)}")
                 admins_promoted = False
@@ -141,12 +136,10 @@ async def create_chat(client, message):
         # Получение ссылки приглашения
         try:
             invite_link = await client.export_chat_invite_link(chat_id)
-            logger.info(f"Создана ссылка приглашения для чата {chat_id}")
         except Exception as e:
             invite_link = "false"
             error_message = f"Failed to get invite link for chat {chat_id}: {str(e)}"
             await client.send_message(config.OWNER_ID, error_message)
-            logger.error(error_message)
 
         # Отправка отчета
         report = f"true\n{sender}\n{chat_id}\n{invite_link}\n{str(members_added).lower()}\n{str(admins_promoted).lower()}"
