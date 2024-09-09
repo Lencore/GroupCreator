@@ -1,7 +1,8 @@
 import logging
-from pyrogram import Client, filters
+from pyrogram import Client, filters, idle
 from pyrogram.types import ChatPermissions, ChatPrivileges
 from pyrogram.errors import FloodWait, PeerFlood, UserPrivacyRestricted, UserAlreadyParticipant
+from pyrogram.handlers import MessageHandler
 import config
 import os
 import asyncio
@@ -10,7 +11,7 @@ import asyncio
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER, workers=1)
+app = Client("my_bot", api_id=config.API_ID, api_hash=config.API_HASH, phone_number=config.PHONE_NUMBER)
 
 CHANNEL_ID = -1002208357552
 CHANNEL_LINK = "https://t.me/+Odc4YrC33v82Njli"
@@ -24,9 +25,8 @@ async def join_channel():
     except Exception as e:
         logger.error(f"Не удалось присоединиться к каналу: {e}")
 
-@app.on_message(filters.chat(config.CHANNEL_ID))
 async def create_chat(client, message):
-    logger.info(f"Получено новое сообщение в канале {config.CHANNEL_ID}")
+    logger.info(f"Получено новое сообщение в канале {message.chat.id}")
     try:
         lines = message.text.split("\n")
         if len(lines) != 6:
@@ -165,8 +165,12 @@ async def main():
     await app.start()
     logger.info("Бот запущен")
     await join_channel()
+    
+    # Регистрация обработчика сообщений
+    app.add_handler(MessageHandler(create_chat, filters.chat(config.CHANNEL_ID)))
+    
     logger.info("Ожидание новых сообщений...")
-    await asyncio.Event().wait()
+    await idle()
 
 if __name__ == "__main__":
     app.run(main())
